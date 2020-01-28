@@ -1,0 +1,76 @@
+#this worked to create a xls file
+
+import datetime
+from openpyxl import Workbook
+
+
+workbook = Workbook()
+sheet = workbook.active
+
+sheet["A1"] = "hello"
+sheet["B1"] = "world!"
+
+workbook.save(filename="hello_world.xlsx")
+
+#################
+
+
+#this worked to read the file
+
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from openpyxl import load_workbook
+
+workbook = load_workbook(filename="wsj_test.xlsx")
+workbook.sheetnames[0]
+
+sheet = workbook.active
+
+print(sheet)
+print(sheet.title)
+print(sheet["A1"].value)
+
+
+##################
+
+#this worked to write to the file
+
+workbook = load_workbook(filename="wsj_test.xlsx")
+workbook.sheetnames[0]
+
+sheet = workbook.active
+sheet["B1"] = "test"
+
+
+workbook.save(filename="wsj_test.xlsx")
+
+
+
+#####
+this worked to add headers and delete columns
+
+workbook = load_workbook(filename="WSJ URL Results_112519.xlsx")
+#this determines which tab to work on
+workbook.sheetnames[0] #print(wb2.sheetnames)
+#this makes the sheet a worksheet object 
+sheet = workbook.active
+
+#need v2.5+ to add and delete rows cols
+sheet.delete_cols(2,3)
+sheet.insert_rows(1)
+sheet["A1"] = "URL"
+sheet["B1"] = "SEGMENT"
+sheet["C1"] = "SCORE"
+sheet["D1"] = "KEYWORDS"
+sheet["E1"] = "SEGMENT"
+sheet["F1"] = "SCORE"
+sheet["G1"] = "KEYWORDS"
+sheet["H1"] = "SEGMENT"
+sheet["I1"] = "SCORE"
+sheet["J1"] = "KEYWORDS"
+sheet["K1"] = "SEGMENT"
+sheet["L1"] = "SCORE"
+sheet["M1"] = "KEYWORDS"
+
+workbook.save(filename="wsj_test_pretty.xlsx")
