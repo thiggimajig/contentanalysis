@@ -1,21 +1,7 @@
 #!/usr/bin/env python3
 
 """
-    gs_cat.py is used to create two charts and eventually a third 
-    (1.Safe Urls 2.Most Popular Segments) 
-    from the url data in the csv files created from the internal tool 
-    called bulkcat (ie. grapeshot's url categorization tool). Each row 
-    in the csv file represents a URL with it's corresponding grapeshot
-    URL categorization data.
-    Author: Taylor Higgins taylor.higgins@oracle.com
-    Last modified: 1/15/2020
-    Todo: 
-    1.)Switch file to xls from csv. 
-    2.)Lost that those two columns so no need to delete
-    3.)Potentially filter out gx but it might not matter. except for safe non safe..
-    4.)Edit tab names or copy data and name new
-    5.)For sections charts figure out placement of data dynamic insert row.
-    6.)Remove third section parser so less random stragglers. 
+Added to github on 2/11/20 8pm EST
 """
 import sys
 import re
@@ -41,7 +27,10 @@ def url_path_parser():
             #print(type(tuple_section)) #tuple
             for row in tuple_section:
                 #print(type(row)) #list
+                #print(row)
                 sections_sheet.append(row)
+                data_sheet.append(row)
+#TODO let's insert_cols or _add_column twice here so next append has it's space
 
 def url_totals():
 
@@ -50,20 +39,38 @@ def url_totals():
     comes from any url starting with gv_. """             
 
     unsafe_total = 0
+    null_total = 0
     safe_segment_dict = {}
+    section_dict = {}
+
+    #Starting loop to find uniquely null URL rows.
+    for row in cat_sheet.iter_rows(min_col=2, min_row=2, max_col=cat_sheet.max_column, max_row=cat_sheet.max_row): 
+        for cell in row:
+            unsafe_segment = re.compile(r'^gx_')
+            try:
+                check_null = unsafe_segment.search(cell.value)
+                if check_null is not None: 
+                    null_total +=1 
+                    #We remove break because we want any gx to be returned. 
+                else:
+                    continue
+
+            except TypeError:
+                #This should pass from the blank cell to the next in the row, then finally to next URL row.
+                pass 
 
     #Starting loop to find uniquely unsafe URL rows.
     for row in cat_sheet.iter_rows(min_col=2, min_row=2, max_col=cat_sheet.max_column, max_row=cat_sheet.max_row): 
         for cell in row:
             unsafe_segment = re.compile(r'^gv_')
             try:
-                #print(type(cell.value)) #str
+                
                 check_safety = unsafe_segment.search(cell.value)
                 if check_safety is not None: 
                     unsafe_total +=1 
                     #We put a break here so that we don't over count URLs that were categorized multiple times as unsafe.
                     break 
-                    #We could add in an else to count for total segment appearnaces here.    
+
             except TypeError:
                 #This should pass from the blank cell to the next in the row, then finally to next URL row.
                 pass 
@@ -74,7 +81,6 @@ def url_totals():
             safe_segment = re.compile(r'^gs_')
             try:
                 check_safety = safe_segment.search(cell.value)
-                #Todo: Figure out how to use a defaultdict here. 
                 if check_safety is not None:
                     new_segment = cell.value
                     if new_segment in safe_segment_dict: 
@@ -85,27 +91,185 @@ def url_totals():
                         safe_segment_dict[new_segment] = 1
             except TypeError:
                 pass
+
     #Here we are sorting the dict of safe segments in descending order by the value of the dict.   
     sorted_safe_seg_dict = dict(sorted(safe_segment_dict.items(), key=operator.itemgetter(1), reverse=True))
     
     #Here we are turning the sorted dict into a list so we can later append it by row and create the segment bar chart.
     safe_segment_list = list(sorted_safe_seg_dict.items())
+    #print(safe_segment_list[0][0])
 
+    #Starting loop to create a dict of absolute count of section appearances regardless of unique URL row or safety.
+    for row in sections_sheet.iter_rows(min_col=1, min_row=2, max_col=sections_sheet.max_column, max_row=sections_sheet.max_row):
+        #print(row)
+        for cell in row:
+            try:
+                if cell.value in section_dict:
+                    #If section is in the dict already add one to the current value. 
+                    section_dict[cell.value] = section_dict[cell.value] + 1
+                    #print(cell.value)
+                else:
+                    #If the segment is not in the dict already then add it and make the value 1.
+                    section_dict[cell.value] = 1
+            except TypeError:
+                pass
+
+    #Here we are sorting the dict of sections in descending order by the value of the dict.
+    sorted_section_dict = dict(sorted(section_dict.items(), key=operator.itemgetter(1), reverse=True))
+
+    #print(sorted_section_dict)
+    #Here we are turning the sorted dict into a list so we can later append it by row to the file. 
+    section_list = list(sorted_section_dict.items())
+    
+    
     #Calculate total categorized URLs. 
     row_count = cat_sheet.max_row 
-    total_cat_urls = row_count - 1 #Make simpler with cat_sheet.max_row -1
+    total_cat_urls = row_count - 1 - null_total
     safe_total = total_cat_urls - unsafe_total
 
     charts_sheet['A1'] = 'Total URLs Categorized' 
     charts_sheet['B1'] = total_cat_urls
+    # print("null total is {}".format(null_total))
+    # print("unsafe total is {}".format(unsafe_total))
+    # print("safe total is {}".format(safe_total))
 
-    return(unsafe_total, safe_total, safe_segment_list)
+    return(null_total, unsafe_total, safe_total, safe_segment_list, section_list)
 
-def safe_pie_chart(unsafe_total, safe_total):
+def section_many_segments(section_list):
+    """Create the Incremental Inventory Bar Chart"""
+    #Here we pick the most popular section from the section list. 
+    #Note that we might end up picking the top 3 to give more options.
+    
+    most_popular_section = section_list[2][0] #do the top 3
+    hardchart1_sheet['B1'] = most_popular_section
+    popular_segment_count = {}
+
+    #Here we loop through all rows in column 1 or URLs in cat_sheet
+    #Currently this will loop through everything so there could be an issue.
+    #If cell.value in a non column 1 col contains most_popular_section
+    for row in cat_sheet.iter_rows(min_row=2,min_col=1,max_col=cat_sheet.max_column, max_row=cat_sheet.max_row):
+        #For any cell in column 1 that contains the most popular section
+        for cell in row:
+            try:
+                if most_popular_section in cell.value:
+                    #for every 3 column after column 2 add the value of the cell to a dict and start counting it 
+                    column_list = [2,5,8,11,14,17,20,23,26,29,32,35,38,41,44]
+                    #dynamically loop through all segment columns
+                    for column_number in column_list:
+                        popular_segment = cat_sheet.cell(row=cell.row, column=column_number).value
+                        #go through all cells in that row and pull out all gs segments
+                        safe_segment = re.compile(r'^gs_')
+                        try:
+                            #check if that segment is in the dict yet 
+                            check_seg_safety = safe_segment.search(popular_segment)
+                            if check_seg_safety is not None:
+                                if popular_segment in popular_segment_count:
+                                    popular_segment_count[popular_segment] = popular_segment_count[popular_segment] + 1
+                                else:
+                                    popular_segment_count[popular_segment] = 1
+                        except TypeError:
+                            pass
+                else:
+                    continue
+            except TypeError:
+                pass
+
+    popular_section_key = [most_popular_section]
+
+    
+    #this goes into a nested dict. {1_section:{1seg:1segcount,2seg:2segcount,3seg:3segcount}}
+    nested_popular_segment_count = dict.fromkeys(popular_section_key,popular_segment_count)
+
+    #find percentage of each key or top 5 most popular keys in nested_popular_segment_count
+    #Here we are appending the section list to the section tab. Moved from url totals function. 
+    for row in section_list:
+        #sections_sheet.append(row)
+        #trying to label that
+        #data_sheet[data_sheet.max_row]
+        data_sheet.append(row)
+
+    #then we can go through similarly as we did in url_totals of sorting
+    sorted_popular_segment_count = dict(sorted(popular_segment_count.items(), key=operator.itemgetter(1), reverse=True))
+    #making a list popular_segment_count
+    sorted_popular_seg_list = list(sorted_popular_segment_count.items())
+
+    #appending sorted_popular_seg_list to sections sheet
+    for row in sorted_popular_seg_list:
+        #sections_sheet.append(row)
+        data_sheet.append(row)
+        hardchart1_sheet.append(row)
+
+    #here is a bar chart that I think is best and simplest
+    bar = BarChart()
+    labels = Reference(hardchart1_sheet, min_col=1, min_row=4, max_row=14)
+    data = Reference(worksheet=hardchart1_sheet, min_col=2, min_row=4, max_row=14)
+    bar.add_data(data, titles_from_data=True)
+    bar.set_categories(labels)
+    bar.title = 'The {} Section Has Many Segments In It'.format(most_popular_section) 
+    #TODO:I can put this chart anywhwere...
+    hardchart1_sheet.add_chart(bar, "E3")
+    #all_charts_sheet.add_chart(bar, "A10")
+
+def segment_many_sections(safe_segment_list):
+    """Create SubDomain Bar Chart"""
+    #print(safe_segment_list[0][0])
+    most_popular_segment = safe_segment_list[0][0]
+    hardchart2_sheet['B1'] = most_popular_segment
+    popular_section_count = {}
+
+    #Here we loop through all rows/segment columns in cat sheets to find any rows with the popular segment 
+    for row in cat_sheet.iter_rows(min_row=2,min_col=1,max_col=cat_sheet.max_column, max_row=cat_sheet.max_row):
+        for cell in row:
+            try:
+                if most_popular_segment in cell.value:
+                #When we find a row with the popular segment
+                #We need to find what section it is in
+                #by going to first column of that row
+                #or row number
+                #finding section info from parser or url and parse again
+                    #print(row[0].value)
+                    url_to_be_parsed_again = row[0].value
+                    popular_section_entire = url_to_be_parsed_again.split('/')[3:]
+                    #print(popular_section_entire[0]) #this is it! 
+                    popular_section = popular_section_entire[0]
+                    if popular_section in popular_section_count:
+                        popular_section_count[popular_section] = popular_section_count[popular_section] + 1
+                    else:
+                        popular_section_count[popular_section] = 1
+                else:
+                    continue
+            except TypeError:
+                pass
+    #print(most_popular_segment)
+    #print(popular_section_count)
+
+    #then we can go through similarly as we did in the first chart 
+    sorted_popular_section_count = dict(sorted(popular_section_count.items(), key=operator.itemgetter(1), reverse=True))
+    #making a list popular_section_count
+    sorted_popular_section_count = list(sorted_popular_section_count.items())
+    #print(type(sorted_popular_section_count))
+    #print((sorted_popular_section_count))
+    for row in sorted_popular_section_count:
+        hardchart2_sheet.append(row)
+
+    #here is a bar chart for chart 2
+    bar = BarChart()
+    labels = Reference(hardchart2_sheet, min_col=1, min_row=4, max_row=14)
+    data = Reference(worksheet=hardchart2_sheet, min_col=2, min_row=4, max_row=14)
+    bar.add_data(data, titles_from_data=True)
+    bar.set_categories(labels)
+    bar.title = 'Sections Where {} Segment Is'.format(most_popular_segment) 
+    #TODO:I can put this chart anywhwere...but only one time
+    hardchart2_sheet.add_chart(bar, "E3")
+    #all_charts_sheet.add_chart(bar, "A10")
+
+
+def safe_pie_chart(null_total, unsafe_total, safe_total):
     """Create Safe Unsafe Pie Chart"""
 
     #Here we create the data table and appending it in the Charts Sheet.
     #Todo: since only two items just call append twice
+    #TODO: make this a percent! 
     safe_unsafe_data = [['Safe', safe_total], ['Unsafe', unsafe_total]]
     for row in safe_unsafe_data:
         charts_sheet.append(row)
@@ -116,14 +280,15 @@ def safe_pie_chart(unsafe_total, safe_total):
     data = Reference(charts_sheet, min_col=2, min_row=1, max_row=3)
     pie.add_data(data, titles_from_data=True)
     pie.set_categories(labels)
-    pie.title = 'Unsafe URls'
+    pie.title = "Unsafe URLs"
     charts_sheet.add_chart(pie, "H2")
+    #all_charts_sheet.add_chart(pie, "H10")
 
 def popular_bar_chart(safe_segment_list):
     """Create Popular Segments Bar Chart"""
 
-    charts_sheet['A6'] = 'Segment'
-    charts_sheet['B6'] = 'Total Appearances'
+    charts_sheet['A5'] = 'Segment'
+    charts_sheet['B5'] = 'Total Appearances'
 
     #Here we append the total segment data to the Charts Sheet.
     for row in safe_segment_list:
@@ -131,38 +296,45 @@ def popular_bar_chart(safe_segment_list):
 
     #Here we set up a bar chart using openpyxl.
     bar = BarChart()
-    labels = Reference(charts_sheet, min_col=1, min_row=7, max_row=26)
-    data = Reference(worksheet=charts_sheet, min_col=2, min_row=7, max_row=26)
+    labels = Reference(charts_sheet, min_col=1, min_row=6, max_row=21)
+    data = Reference(worksheet=charts_sheet, min_col=2, min_row=6, max_row=21)
     bar.add_data(data, titles_from_data=True)
     bar.set_categories(labels)
     bar.title = 'Total Appearances'
     charts_sheet.add_chart(bar, "H20")
+    #all_charts_sheet.add_chart(bar, "H20" )
+
 
 if __name__ == '__main__': 
-    #transform csv datashot file to xls so can use existing code
-    # wb = openpyxl.Workbook()
-    # ws = wb.active
-    # with open('file.csv') as f:
-    #     reader = csv.reader(f, delimiter=':')
-    #     for row in reader:
-    #         ws.append(row)
-    # wb.save('file.xlsx')
 
-    #Open csv file from Bulkcat using the command line argument.
-    name = sys.argv[1]
-
+    #Open csv file from Datashot using the command line argument.
+    name = sys.argv[1] #meredith_cat_500.txt.cat.csv
+    cleaned_name = name.split(".")
+    shorter_name = cleaned_name[0]
     #Transform the csv from datashot to xlsx
     read_file = pd.read_csv(name)
-    read_file.to_excel("{}{}{}".format("testcharts_",name,".xlsx"),index=None, header=False)
-    filename = "{}{}{}".format("testcharts_",name,".xlsx")
-    workbook = load_workbook(filename) #WSJ_URL_Results_112519.xlsx
-    #Add sheets for URL sections and charts. 
+    read_file.to_excel("{}{}{}".format("charts_",shorter_name,".xlsx"),index=None, header=False)
+    filename = "{}{}{}".format("charts_",shorter_name,".xlsx")
+    workbook = load_workbook(filename) 
+
+    #Add sheets for data, URL sections and charts.
+    #we might make more tabs for certain data 
+    workbook.create_sheet('Chart Data')
     workbook.create_sheet('URL Sections')
-    workbook.create_sheet('Charts')
+    workbook.create_sheet('Easy Charts')
+    workbook.create_sheet('Hard Chart 1')
+    workbook.create_sheet('Hard Chart 2')
+    workbook.create_sheet('ALL Charts')
+
     #Create new sheets for sections and charts and make variables of each sheet we'll need. 
     cat_sheet = workbook['Sheet1']
+    data_sheet = workbook['Chart Data']
     sections_sheet = workbook['URL Sections']
-    charts_sheet = workbook['Charts']
+    charts_sheet = workbook['Easy Charts']
+    hardchart1_sheet = workbook['Hard Chart 1']
+    hardchart2_sheet = workbook['Hard Chart 2']
+    all_charts_sheet = workbook['ALL Charts']
+
     #Add in headers and clean up the categorized sheet.
     cat_sheet.delete_cols(2)
     cat_sheet.insert_rows(1)
@@ -179,10 +351,19 @@ if __name__ == '__main__':
     #Add in headers for the sections sheet. 
     sections_sheet['A1'] = "URL SECTION ONE"
     sections_sheet['B1'] = "URL SECTION TWO"
-    
+    #Add in headers for the hard chart 1 sheet
+    hardchart1_sheet['A1'] = "Most Common Section Out of All URLs"
+    hardchart1_sheet['A3'] = "Segments"
+    hardchart1_sheet['B3'] = "Count"
+    hardchart2_sheet['A1'] = "Most Common Segment Out of All URLs"
+    hardchart2_sheet['A3'] = "Sections"
+    hardchart2_sheet['B3'] = "Count"
+
     url_path_parser()
-    (unsafe_total, safe_total, safe_segment_list) = url_totals()
-    safe_pie_chart(unsafe_total, safe_total)
+    (null_total,unsafe_total, safe_total, safe_segment_list, section_list) = url_totals()
+    section_many_segments(section_list)
+    segment_many_sections(safe_segment_list)
+    safe_pie_chart(null_total,unsafe_total, safe_total)
     popular_bar_chart(safe_segment_list)
-    #Todo: Out of curiousity figure out how you can add charts_ to the end of the name without disrupting xlsx. 
-    workbook.save(filename="{}{}{}".format("charts_",name,".xlsx"))
+    workbook.save(filename="{}{}{}".format("charts_",shorter_name,".xlsx"))
+    print("using input {} cat_newfile.py has finished".format(name))
