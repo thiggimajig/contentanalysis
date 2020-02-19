@@ -15,22 +15,41 @@ from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Fo
 from openpyxl.chart import BarChart, Reference, PieChart
 from openpyxl.chart.series import DataPoint
 
+#should I up top here determine if it's a https or www so we can have a value to decide which logic to use going forward? 
+#instead of asking in each function? 
+
 def url_path_parser():
     """Loop to parse all the URL path sections from the existing URLs. This will be used for the third chart which I haven't started yet. """
     #Todo: Remove intermediary tuple section. That caused an error when appending so I'm going to leave it for now. 
+    
+    #http_true = 'unknown'
+
     for row in cat_sheet.iter_rows(min_col=1, min_row=2, max_col=1, max_row=cat_sheet.max_row):    
         for cell in row:
+            #if column1 url in sheet 1
+            #contains http://
+            #do this logic for http:// url's
+            #this below works for https
+            #split_cell_list = cell.value.split('/')[3:]
+            #else:
+            #do this logic for www url's
             #print(type(cell.value)) #string
-            #decide on whether to do 3: or 3:5 or what
-            split_cell_list = cell.value.split('/')[3:]
+            #this below works for www.
+            if 'http' in cell.value:
+                split_cell_list = cell.value.split('/')[3:]
+                http_true = 1
+            else:
+                split_cell_list = cell.value.split('/')[1:]
+                http_true = 0
             tuple_section = (split_cell_list,)
+            print(http_true)
             #print(type(tuple_section)) #tuple
             for row in tuple_section:
                 #print(type(row)) #list
                 #print(row)
                 sections_sheet.append(row)
-                data_sheet.append(row)
-#TODO let's insert_cols or _add_column twice here so next append has it's space
+                #data_sheet.append(row)
+    return(http_true)
 
 def url_totals():
 
@@ -103,6 +122,7 @@ def url_totals():
     for row in sections_sheet.iter_rows(min_col=1, min_row=2, max_col=sections_sheet.max_column, max_row=sections_sheet.max_row):
         #print(row)
         for cell in row:
+            #print(cell.value)
             try:
                 if cell.value in section_dict:
                     #If section is in the dict already add one to the current value. 
@@ -141,6 +161,7 @@ def section_many_segments(section_list):
     #Note that we might end up picking the top 3 to give more options.
     
     most_popular_section = section_list[2][0] #do the top 3
+    #print(section_list[2][0])
     hardchart1_sheet['B1'] = most_popular_section
     popular_segment_count = {}
 
@@ -182,11 +203,11 @@ def section_many_segments(section_list):
 
     #find percentage of each key or top 5 most popular keys in nested_popular_segment_count
     #Here we are appending the section list to the section tab. Moved from url totals function. 
-    for row in section_list:
+    #for row in section_list:
         #sections_sheet.append(row)
         #trying to label that
         #data_sheet[data_sheet.max_row]
-        data_sheet.append(row)
+        #data_sheet.append(row)
 
     #then we can go through similarly as we did in url_totals of sorting
     sorted_popular_segment_count = dict(sorted(popular_segment_count.items(), key=operator.itemgetter(1), reverse=True))
@@ -196,7 +217,7 @@ def section_many_segments(section_list):
     #appending sorted_popular_seg_list to sections sheet
     for row in sorted_popular_seg_list:
         #sections_sheet.append(row)
-        data_sheet.append(row)
+        #data_sheet.append(row)
         hardchart1_sheet.append(row)
 
     #here is a bar chart that I think is best and simplest
@@ -205,12 +226,12 @@ def section_many_segments(section_list):
     data = Reference(worksheet=hardchart1_sheet, min_col=2, min_row=4, max_row=14)
     bar.add_data(data, titles_from_data=True)
     bar.set_categories(labels)
-    bar.title = 'The {} Section Has Many Segments In It'.format(most_popular_section) 
+    bar.title = 'the "{}" section has many segments'.format(most_popular_section) 
     #TODO:I can put this chart anywhwere...
     hardchart1_sheet.add_chart(bar, "E3")
     #all_charts_sheet.add_chart(bar, "A10")
 
-def segment_many_sections(safe_segment_list):
+def segment_many_sections(safe_segment_list,http_true):
     """Create SubDomain Bar Chart"""
     #print(safe_segment_list[0][0])
     most_popular_segment = safe_segment_list[0][0]
@@ -229,14 +250,35 @@ def segment_many_sections(safe_segment_list):
                 #finding section info from parser or url and parse again
                     #print(row[0].value)
                     url_to_be_parsed_again = row[0].value
-                    popular_section_entire = url_to_be_parsed_again.split('/')[3:]
-                    #print(popular_section_entire[0]) #this is it! 
-                    popular_section = popular_section_entire[0]
-                    if popular_section in popular_section_count:
-                        popular_section_count[popular_section] = popular_section_count[popular_section] + 1
+                    #print(url_to_be_parsed_again)
+                    #if column1 url in sheet 1
+                    #contains http://
+                    #do this logic for http:// url's
+                    if http_true == 1:
+                        popular_section_entire = url_to_be_parsed_again.split('/')[3:]
+                        popular_section = popular_section_entire[0]
+                        print("hi we're in the if")
+
+                        if popular_section in popular_section_count:
+                            popular_section_count[popular_section] = popular_section_count[popular_section] + 1
+                            print("hi we're in the nested if")
+                        else:
+                            popular_section_count[popular_section] = 1
+                            print("hi we're in the nested else")
+                    #else:
+                    #do this logic for www url's
                     else:
-                        popular_section_count[popular_section] = 1
-                else:
+                        popular_section_entire = url_to_be_parsed_again.split('/')
+                        popular_section = popular_section_entire[1]
+                        print("hi we're in the else")
+
+                        if popular_section in popular_section_count:
+                            popular_section_count[popular_section] = popular_section_count[popular_section] + 1
+                            print("hi we're in the nested if")
+                        else:
+                            popular_section_count[popular_section] = 1
+                            print("hi we're in the nested else")
+                else:       
                     continue
             except TypeError:
                 pass
@@ -258,7 +300,7 @@ def segment_many_sections(safe_segment_list):
     data = Reference(worksheet=hardchart2_sheet, min_col=2, min_row=4, max_row=14)
     bar.add_data(data, titles_from_data=True)
     bar.set_categories(labels)
-    bar.title = 'Sections Where {} Segment Is'.format(most_popular_segment) 
+    bar.title = 'sections where the "{}" segment is'.format(most_popular_segment) 
     #TODO:I can put this chart anywhwere...but only one time
     hardchart2_sheet.add_chart(bar, "E3")
     #all_charts_sheet.add_chart(bar, "A10")
@@ -319,21 +361,21 @@ if __name__ == '__main__':
 
     #Add sheets for data, URL sections and charts.
     #we might make more tabs for certain data 
-    workbook.create_sheet('Chart Data')
+    #workbook.create_sheet('Chart Data')
     workbook.create_sheet('URL Sections')
-    workbook.create_sheet('Easy Charts')
-    workbook.create_sheet('Hard Chart 1')
-    workbook.create_sheet('Hard Chart 2')
-    workbook.create_sheet('ALL Charts')
+    workbook.create_sheet('Chart 1')
+    workbook.create_sheet('Chart 2')
+    workbook.create_sheet('Chart 3 and 4')
+    #workbook.create_sheet('ALL Charts')
 
     #Create new sheets for sections and charts and make variables of each sheet we'll need. 
     cat_sheet = workbook['Sheet1']
-    data_sheet = workbook['Chart Data']
+    #data_sheet = workbook['Chart Data']
     sections_sheet = workbook['URL Sections']
-    charts_sheet = workbook['Easy Charts']
-    hardchart1_sheet = workbook['Hard Chart 1']
-    hardchart2_sheet = workbook['Hard Chart 2']
-    all_charts_sheet = workbook['ALL Charts']
+    hardchart1_sheet = workbook['Chart 1']
+    hardchart2_sheet = workbook['Chart 2']
+    charts_sheet = workbook['Chart 3 and 4']
+    #all_charts_sheet = workbook['ALL Charts']
 
     #Add in headers and clean up the categorized sheet.
     cat_sheet.delete_cols(2)
@@ -359,10 +401,10 @@ if __name__ == '__main__':
     hardchart2_sheet['A3'] = "Sections"
     hardchart2_sheet['B3'] = "Count"
 
-    url_path_parser()
+    (http_true) = url_path_parser()
     (null_total,unsafe_total, safe_total, safe_segment_list, section_list) = url_totals()
     section_many_segments(section_list)
-    segment_many_sections(safe_segment_list)
+    segment_many_sections(safe_segment_list, http_true)
     safe_pie_chart(null_total,unsafe_total, safe_total)
     popular_bar_chart(safe_segment_list)
     workbook.save(filename="{}{}{}".format("charts_",shorter_name,".xlsx"))
