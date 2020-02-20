@@ -42,7 +42,7 @@ def url_path_parser():
                 split_cell_list = cell.value.split('/')[1:]
                 http_true = 0
             tuple_section = (split_cell_list,)
-            print(http_true)
+            #print(http_true)
             #print(type(tuple_section)) #tuple
             for row in tuple_section:
                 #print(type(row)) #list
@@ -81,11 +81,17 @@ def url_totals():
     #Starting loop to find uniquely unsafe URL rows.
     for row in cat_sheet.iter_rows(min_col=2, min_row=2, max_col=cat_sheet.max_column, max_row=cat_sheet.max_row): 
         for cell in row:
+            #write this out so we ignore gv_safe
+            fake_unsafe_segment = re.compile(r'^gv_safe')
             unsafe_segment = re.compile(r'^gv_')
             try:
-                
+                check_fake = fake_unsafe_segment.search(cell.value)
                 check_safety = unsafe_segment.search(cell.value)
-                if check_safety is not None: 
+                if check_fake is not None:
+                    #print(cell.value)
+                    break
+                elif check_safety is not None: 
+                    #print(cell.value)
                     unsafe_total +=1 
                     #We put a break here so that we don't over count URLs that were categorized multiple times as unsafe.
                     break 
@@ -113,7 +119,7 @@ def url_totals():
 
     #Here we are sorting the dict of safe segments in descending order by the value of the dict.   
     sorted_safe_seg_dict = dict(sorted(safe_segment_dict.items(), key=operator.itemgetter(1), reverse=True))
-    
+    #print(sorted_safe_seg_dict)
     #Here we are turning the sorted dict into a list so we can later append it by row and create the segment bar chart.
     safe_segment_list = list(sorted_safe_seg_dict.items())
     #print(safe_segment_list[0][0])
@@ -231,9 +237,9 @@ def section_many_segments(section_list):
     hardchart1_sheet.add_chart(bar, "E3")
     #all_charts_sheet.add_chart(bar, "A10")
 
-def segment_many_sections(safe_segment_list,http_true):
+def segment_many_sections(safe_segment_list, http_true):
     """Create SubDomain Bar Chart"""
-    #print(safe_segment_list[0][0])
+    print(safe_segment_list)
     most_popular_segment = safe_segment_list[0][0]
     hardchart2_sheet['B1'] = most_popular_segment
     popular_section_count = {}
@@ -257,27 +263,27 @@ def segment_many_sections(safe_segment_list,http_true):
                     if http_true == 1:
                         popular_section_entire = url_to_be_parsed_again.split('/')[3:]
                         popular_section = popular_section_entire[0]
-                        print("hi we're in the if")
+                        #print("hi we're in the if")
 
                         if popular_section in popular_section_count:
                             popular_section_count[popular_section] = popular_section_count[popular_section] + 1
-                            print("hi we're in the nested if")
+                            #print("hi we're in the nested if")
                         else:
                             popular_section_count[popular_section] = 1
-                            print("hi we're in the nested else")
+                            #print("hi we're in the nested else")
                     #else:
                     #do this logic for www url's
                     else:
                         popular_section_entire = url_to_be_parsed_again.split('/')
                         popular_section = popular_section_entire[1]
-                        print("hi we're in the else")
+                        #print("hi we're in the else")
 
                         if popular_section in popular_section_count:
                             popular_section_count[popular_section] = popular_section_count[popular_section] + 1
-                            print("hi we're in the nested if")
+                            #print("hi we're in the nested if")
                         else:
                             popular_section_count[popular_section] = 1
-                            print("hi we're in the nested else")
+                            #print("hi we're in the nested else")
                 else:       
                     continue
             except TypeError:
@@ -354,7 +360,9 @@ if __name__ == '__main__':
     cleaned_name = name.split(".")
     shorter_name = cleaned_name[0]
     #Transform the csv from datashot to xlsx
-    read_file = pd.read_csv(name)
+    #issue with unshortened so added sep and header, could maybe add: error_bad_lines=False
+    #added engine='python' from error suggestion:  ParserWarning: Falling back to the 'python' engine because the 'c' engine does not support regex separator
+    read_file = pd.read_csv(name, delimiter=',', header=None, engine='python', names=list(range(500))) 
     read_file.to_excel("{}{}{}".format("charts_",shorter_name,".xlsx"),index=None, header=False)
     filename = "{}{}{}".format("charts_",shorter_name,".xlsx")
     workbook = load_workbook(filename) 
@@ -403,8 +411,8 @@ if __name__ == '__main__':
 
     (http_true) = url_path_parser()
     (null_total,unsafe_total, safe_total, safe_segment_list, section_list) = url_totals()
-    section_many_segments(section_list)
     segment_many_sections(safe_segment_list, http_true)
+    section_many_segments(section_list)
     safe_pie_chart(null_total,unsafe_total, safe_total)
     popular_bar_chart(safe_segment_list)
     workbook.save(filename="{}{}{}".format("charts_",shorter_name,".xlsx"))
