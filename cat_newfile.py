@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 
 """
-Added to github on 2/11/20 8pm EST
+cat_newfile.py is used to create four charts
+from the url data in the csv files created from the internal tool 
+called datashot (ie. grapeshot's url categorization tool). 
+Each row in the csv file represents a URL with it's corresponding grapeshot
+URL categorization data.
+Author: Taylor Higgins
+Last modified: 2/28/2020
 """
 import sys
 import re
@@ -239,7 +245,7 @@ def section_many_segments(section_list):
 
 def segment_many_sections(safe_segment_list, http_true):
     """Create SubDomain Bar Chart"""
-    print(safe_segment_list)
+    #print(safe_segment_list)
     most_popular_segment = safe_segment_list[0][0]
     hardchart2_sheet['B1'] = most_popular_segment
     popular_section_count = {}
@@ -355,10 +361,11 @@ def popular_bar_chart(safe_segment_list):
 
 if __name__ == '__main__': 
 
+    print('Hello! The context script is working, one moment please...')
     #Open csv file from Datashot using the command line argument.
     name = sys.argv[1] #meredith_cat_500.txt.cat.csv
     cleaned_name = name.split(".")
-    shorter_name = cleaned_name[0]
+    shorter_name = cleaned_name[0] #TEST THIS
     #Transform the csv from datashot to xlsx
     #issue with unshortened so added sep and header, could maybe add: error_bad_lines=False
     #added engine='python' from error suggestion:  ParserWarning: Falling back to the 'python' engine because the 'c' engine does not support regex separator
@@ -416,4 +423,4 @@ if __name__ == '__main__':
     safe_pie_chart(null_total,unsafe_total, safe_total)
     popular_bar_chart(safe_segment_list)
     workbook.save(filename="{}{}{}".format("charts_",shorter_name,".xlsx"))
-    print("using input {} cat_newfile.py has finished".format(name))
+    print("Using input file named {} the context script has finished!".format(name))
