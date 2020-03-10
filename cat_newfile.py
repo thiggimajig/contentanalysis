@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-cat_newfile.py is used to create four charts
+cat.py is used to create four charts
 from the url data in the csv files created from the internal tool 
 called datashot (ie. grapeshot's url categorization tool). 
 Each row in the csv file represents a URL with it's corresponding grapeshot
@@ -21,15 +21,10 @@ from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Fo
 from openpyxl.chart import BarChart, Reference, PieChart
 from openpyxl.chart.series import DataPoint
 
-#should I up top here determine if it's a https or www so we can have a value to decide which logic to use going forward? 
-#instead of asking in each function? 
 
 def url_path_parser():
     """Loop to parse all the URL path sections from the existing URLs. This will be used for the third chart which I haven't started yet. """
-    #Todo: Remove intermediary tuple section. That caused an error when appending so I'm going to leave it for now. 
-    
-    #http_true = 'unknown'
-
+    #add in try if so no error issue from josh TypeError
     for row in cat_sheet.iter_rows(min_col=1, min_row=2, max_col=1, max_row=cat_sheet.max_row):    
         for cell in row:
             #if column1 url in sheet 1
@@ -41,13 +36,19 @@ def url_path_parser():
             #do this logic for www url's
             #print(type(cell.value)) #string
             #this below works for www.
-            if 'http' in cell.value:
-                split_cell_list = cell.value.split('/')[3:]
-                http_true = 1
-            else:
-                split_cell_list = cell.value.split('/')[1:]
-                http_true = 0
-            tuple_section = (split_cell_list,)
+            #print(type(cell.value))
+            try:
+                if 'http' in cell.value:
+                    #print(type(cell.value))
+                    #print(cell.value)
+                    split_cell_list = cell.value.split('/')[3:]
+                    http_true = 1
+                else:
+                    split_cell_list = cell.value.split('/')[1:]
+                    http_true = 0
+                tuple_section = (split_cell_list,)
+            except TypeError:
+                pass
             #print(http_true)
             #print(type(tuple_section)) #tuple
             for row in tuple_section:
@@ -65,15 +66,17 @@ def url_totals():
 
     unsafe_total = 0
     null_total = 0
+    actual_safe_total = 0
+    fake_total = 0
     safe_segment_dict = {}
     section_dict = {}
 
     #Starting loop to find uniquely null URL rows.
     for row in cat_sheet.iter_rows(min_col=2, min_row=2, max_col=cat_sheet.max_column, max_row=cat_sheet.max_row): 
         for cell in row:
-            unsafe_segment = re.compile(r'^gx_')
+            null_segment = re.compile(r'^gx_')
             try:
-                check_null = unsafe_segment.search(cell.value)
+                check_null = null_segment.search(cell.value)
                 if check_null is not None: 
                     null_total +=1 
                     #We remove break because we want any gx to be returned. 
@@ -95,6 +98,7 @@ def url_totals():
                 check_safety = unsafe_segment.search(cell.value)
                 if check_fake is not None:
                     #print(cell.value)
+                    fake_total += 1
                     break
                 elif check_safety is not None: 
                     #print(cell.value)
@@ -112,14 +116,16 @@ def url_totals():
             safe_segment = re.compile(r'^gs_')
             try:
                 check_safety = safe_segment.search(cell.value)
-                if check_safety is not None:
+                if check_safety is not None: 
                     new_segment = cell.value
+                    actual_safe_total += 1
                     if new_segment in safe_segment_dict: 
                         #If the segment is in the dict already add one to the current value.
                         safe_segment_dict[new_segment] = safe_segment_dict[new_segment] + 1
                     else:
                         #If the segment is not in the dict already then add it and make the value 1.
                         safe_segment_dict[new_segment] = 1
+                    break #adding this break to see if we can get an accurate gs_ count
             except TypeError:
                 pass
 
@@ -158,6 +164,8 @@ def url_totals():
     row_count = cat_sheet.max_row 
     total_cat_urls = row_count - 1 - null_total
     safe_total = total_cat_urls - unsafe_total
+
+    #print(row_count, actual_safe_total, unsafe_total, null_total, fake_total)
 
     charts_sheet['A1'] = 'Total URLs Categorized' 
     charts_sheet['B1'] = total_cat_urls
@@ -221,7 +229,6 @@ def section_many_segments(section_list):
         #data_sheet[data_sheet.max_row]
         #data_sheet.append(row)
 
-    #then we can go through similarly as we did in url_totals of sorting
     sorted_popular_segment_count = dict(sorted(popular_segment_count.items(), key=operator.itemgetter(1), reverse=True))
     #making a list popular_segment_count
     sorted_popular_seg_list = list(sorted_popular_segment_count.items())
@@ -232,16 +239,14 @@ def section_many_segments(section_list):
         #data_sheet.append(row)
         hardchart1_sheet.append(row)
 
-    #here is a bar chart that I think is best and simplest
     bar = BarChart()
     labels = Reference(hardchart1_sheet, min_col=1, min_row=4, max_row=14)
     data = Reference(worksheet=hardchart1_sheet, min_col=2, min_row=4, max_row=14)
     bar.add_data(data, titles_from_data=True)
     bar.set_categories(labels)
     bar.title = 'the "{}" section has many segments'.format(most_popular_section) 
-    #TODO:I can put this chart anywhwere...
+
     hardchart1_sheet.add_chart(bar, "E3")
-    #all_charts_sheet.add_chart(bar, "A10")
 
 def segment_many_sections(safe_segment_list, http_true):
     """Create SubDomain Bar Chart"""
@@ -266,30 +271,37 @@ def segment_many_sections(safe_segment_list, http_true):
                     #if column1 url in sheet 1
                     #contains http://
                     #do this logic for http:// url's
-                    if http_true == 1:
-                        popular_section_entire = url_to_be_parsed_again.split('/')[3:]
-                        popular_section = popular_section_entire[0]
-                        #print("hi we're in the if")
+                    try:
+                        if http_true == 1:
+                            popular_section_entire = url_to_be_parsed_again.split('/')[3:]
+                            #print(cell.value)
+                            #print(url_to_be_parsed_again)
+                            #print(popular_section_entire) #check if there is something in first IndexError
 
-                        if popular_section in popular_section_count:
-                            popular_section_count[popular_section] = popular_section_count[popular_section] + 1
-                            #print("hi we're in the nested if")
-                        else:
-                            popular_section_count[popular_section] = 1
-                            #print("hi we're in the nested else")
-                    #else:
-                    #do this logic for www url's
-                    else:
-                        popular_section_entire = url_to_be_parsed_again.split('/')
-                        popular_section = popular_section_entire[1]
-                        #print("hi we're in the else")
+                            popular_section = popular_section_entire[0]
+                            #print("hi we're in the if")
 
-                        if popular_section in popular_section_count:
-                            popular_section_count[popular_section] = popular_section_count[popular_section] + 1
-                            #print("hi we're in the nested if")
+                            if popular_section in popular_section_count:
+                                popular_section_count[popular_section] = popular_section_count[popular_section] + 1
+                                #print("hi we're in the nested if")
+                            else:
+                                popular_section_count[popular_section] = 1
+                                #print("hi we're in the nested else")
+                        #else:
+                        #do this logic for www url's
                         else:
-                            popular_section_count[popular_section] = 1
-                            #print("hi we're in the nested else")
+                            popular_section_entire = url_to_be_parsed_again.split('/')
+                            popular_section = popular_section_entire[1]
+                            #print("hi we're in the else")
+
+                            if popular_section in popular_section_count:
+                                popular_section_count[popular_section] = popular_section_count[popular_section] + 1
+                                #print("hi we're in the nested if")
+                            else:
+                                popular_section_count[popular_section] = 1
+                                #print("hi we're in the nested else")
+                    except IndexError:
+                        pass
                 else:       
                     continue
             except TypeError:
@@ -313,16 +325,14 @@ def segment_many_sections(safe_segment_list, http_true):
     bar.add_data(data, titles_from_data=True)
     bar.set_categories(labels)
     bar.title = 'sections where the "{}" segment is'.format(most_popular_segment) 
-    #TODO:I can put this chart anywhwere...but only one time
     hardchart2_sheet.add_chart(bar, "E3")
-    #all_charts_sheet.add_chart(bar, "A10")
+
 
 
 def safe_pie_chart(null_total, unsafe_total, safe_total):
     """Create Safe Unsafe Pie Chart"""
 
     #Here we create the data table and appending it in the Charts Sheet.
-    #Todo: since only two items just call append twice
     #TODO: make this a percent! 
     safe_unsafe_data = [['Safe', safe_total], ['Unsafe', unsafe_total]]
     for row in safe_unsafe_data:
@@ -336,7 +346,6 @@ def safe_pie_chart(null_total, unsafe_total, safe_total):
     pie.set_categories(labels)
     pie.title = "Unsafe URLs"
     charts_sheet.add_chart(pie, "H2")
-    #all_charts_sheet.add_chart(pie, "H10")
 
 def popular_bar_chart(safe_segment_list):
     """Create Popular Segments Bar Chart"""
@@ -356,7 +365,6 @@ def popular_bar_chart(safe_segment_list):
     bar.set_categories(labels)
     bar.title = 'Total Appearances'
     charts_sheet.add_chart(bar, "H20")
-    #all_charts_sheet.add_chart(bar, "H20" )
 
 
 if __name__ == '__main__': 
