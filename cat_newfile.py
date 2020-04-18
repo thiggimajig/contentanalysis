@@ -15,7 +15,8 @@ import csv
 import pandas as pd
 import openpyxl
 import operator
-import collections
+#import collections
+from collections import defaultdict
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font, Color
 from openpyxl.chart import BarChart, Reference, PieChart
@@ -23,7 +24,8 @@ from openpyxl.chart.series import DataPoint
 
 
 def url_path_parser():
-    """Loop to parse all the URL path sections from the existing URLs. This will be used for the third chart which I haven't started yet. """
+    """Loop to parse all the URL path sections from the existing URLs, this is mostly needed for chart 3. And determine if http or www. """
+    
     #add in try if so no error issue from josh TypeError
     for row in cat_sheet.iter_rows(min_col=1, min_row=2, max_col=1, max_row=cat_sheet.max_row):    
         for cell in row:
@@ -58,11 +60,125 @@ def url_path_parser():
                 #data_sheet.append(row)
     return(http_true)
 
-def url_totals():
+def standard_safety():
+    """Function to show keywords and score for unsafe (if any row has a gv segment with score 15+) (and safe down the line) urls
+    segments have their own nested dctionary under each url."""
+    
+    #convert tuple rows into list
+    #list(rows)
+    gv_unsafe_threshold = 15.00
+    sheet_dictionary = {}
+    total_row_count = cat_sheet.max_row
+    i=0    
+    for row in cat_sheet.iter_rows(min_col=1, min_row=2, max_col=40, max_row=cat_sheet.max_row): #40
+        sheet_dictionary[i] = {}
+        for cell in row:
+            try:
+                sheet_dictionary[i]["url"] = row[0].value
+                sheet_dictionary[i]["segments"] = [row[1].value,row[4].value,row[7].value,row[10].value,row[13].value,row[16].value,row[19].value,row[22].value,row[25].value,row[28].value,row[31].value,row[34].value]
+                sheet_dictionary[i]["keywords"] = [row[2].value, row[5].value, row[8].value,row[11].value, row[14].value, row[17].value,row[20].value, row[23].value, row[26].value,row[29].value, row[32].value, row[35].value]
+                sheet_dictionary[i]["score"] = [row[3].value, row[6].value, row[9].value,row[12].value, row[15].value, row[18].value,row[21].value, row[24].value, row[27].value,row[30].value, row[33].value, row[36].value]
+                sheet_dictionary[i]["safety_verdict"] = "unknown"
+                sheet_dictionary[i]["safety_boolean"] = None
+            except AttributeError:
+                continue
+        i+=1
+
+
+    #TODO work on figuring out urls/rows that aren't safe, but don't have gv, null
+    #go to file and see how many scores are more than 15.00
+    #it's because they are duplicating, multipel gs is getting added twice.
+    for key in sheet_dictionary.keys():
+        #print(key)
+        #print(sheet_dictionary[key]["url"])
+        for segment in sheet_dictionary[key]["segments"]:
+        #if gv is above threshhold entire row unsafe, break
+        #if gv is below threshold, safe or undetermined, continue
+        #if gs is present and gv isn't above threshold safe
+        #if it's other than disregard that segment
+        #we could disregard all rows with only garbage segments
+        #then do the gv threshold test, and minus that total from url total to find safe
+            try:
+                if 'gv_' in segment:
+                    #print(segment)
+                    the_gv_index = sheet_dictionary[key]["segments"].index(segment)
+                    #print(the_gv_index)
+                    gv_score = float(sheet_dictionary[key]["score"][the_gv_index])
+                    if gv_score >= gv_unsafe_threshold:
+                        # print(type(gv_score))
+                        # print(gv_score)
+                        # print("unsafe")
+                        sheet_dictionary[key]["safety_verdict"] = "unsafe gv score is {}".format(gv_score)
+                        #HOORAY we just need get to adjust the total safe unsafe URL count using this logic, 
+                        #mark this entire row as unsafe if there's gv > 15.00
+                        sheet_dictionary[key]["safety_boolean"] = False
+                        print(sheet_dictionary[key]["url"])
+                        print(sheet_dictionary[key])
+                        print(sheet_dictionary[key]["safety_verdict"])
+                        print(sheet_dictionary[key]["safety_boolean"])
+                        #TODO to get it to leave this row/this dict USE BREAK??
+                        break
+                    else:
+                        # print(gv_score)
+                        sheet_dictionary[key]["safety_verdict"] = "safe gv score is {}".format(gv_score)
+                        sheet_dictionary[key]["safety_boolean"] = True
+                        print(sheet_dictionary[key]["url"])
+                        print(sheet_dictionary[key])
+                        print(sheet_dictionary[key]["safety_verdict"])
+                        print(sheet_dictionary[key]["safety_boolean"])
+                        # print(gv_score)
+                        # print("safe")
+                elif 'gs_' in segment:
+                    sheet_dictionary[key]["safety_verdict"] = "safe no gv segments in the url"
+                    sheet_dictionary[key]["safety_boolean"] = True
+                    print(sheet_dictionary[key]["url"])
+                    print(sheet_dictionary[key])
+                    print(sheet_dictionary[key]["safety_verdict"])
+                    print(sheet_dictionary[key]["safety_boolean"])
+                else:
+                    sheet_dictionary[key]["safety_verdict"] = "null"
+                    print(sheet_dictionary[key]["url"])
+                    print(sheet_dictionary[key])
+                    print(sheet_dictionary[key]["safety_verdict"])
+                    print(sheet_dictionary[key]["safety_boolean"])
+                    #print("Null")
+            #TODO investigate this try except with skewing safe unsafe numbers
+            except TypeError:
+                continue
+    #here or elsewhere perhaps up in safe null etc, we want to 
+    #loop through all verdicts for all url dicts or rows
+    #if it starts with safe count as safe, if it starts as unsafe count as unsafe
+    
+    #tests     
+    #print(sheet_dictionary[26]) #should be safe but has a gv seg good
+    #print(sheet_dictionary[9]) #should be unsafe good 
+    #print(sheet_dictionary[21]) #will be safe
+    return(sheet_dictionary)
+
+def count_keywords_segments(sheet_dictionary):
+    """TODO in its own tab for each i'll write the row of each dict that holds the total count"""
+    #go through each row/url dict in the sheet_dict
+    #if the row dict's key verdict value starts with safe
+    #add all segments to safe segment count dict
+    #and add all keywords after stripping of | to safe segment
+    #if row's dict key verdict value starts with unsafe do the opposite
+    #maybe add a step where we  
+    #go through each segments list and see if starts with gv or gs
+    #only add gs to safe and gv to unsafe 
+    #use index to access segment and appropriate keywords
+
+    #tests
+    #print(sheet_dictionary[5])
+    #print(type(sheet_dictionary[5]["safety_boolean"]))
+    #unsafe_segment_count_sheet.append()
+
+def url_totals(sheet_dictionary):
 
     """Find Totals for the charts. Categorized URLs total comes from the total row count in the categorized sheet 
     or by going through all the non gv_ and gx_ segments in the all sheet. Unsafe URLs Total
-    comes from any url starting with gv_. """             
+    comes from any url starting with gv_ we are updating it so that it would need a score
+    over 15 via the safe verdict key from the sheet dictionary. TODO This feels fairly finished, need to test the new
+    way of testing on some more files and put it in the graph. """             
 
     unsafe_total = 0
     null_total = 0
@@ -70,6 +186,32 @@ def url_totals():
     fake_total = 0
     safe_segment_dict = {}
     section_dict = {}
+    new_unsafe_total = 0
+    new_safe_total = 0
+    new_null_total = 0
+
+    #TODO figure out if using IS here is skewing results on total safe unsafe
+    #Work on new unsafe total and safe total here
+    #loop through sheet dictionary, if url dict contains safety_verdict
+    #starting with unsafe or safe add a point to the total
+    for key in sheet_dictionary.keys():
+        if sheet_dictionary[key]["safety_boolean"] is False:
+            #print(sheet_dictionary[key]["safety_boolean"])
+            #print("add to new_sheetdict_safe_total")
+            #print(sheet_dictionary[key]["url"])
+            new_unsafe_total +=1
+        elif sheet_dictionary[key]["safety_boolean"] is True:
+            #print(sheet_dictionary[key]["safety_boolean"])
+            #print("add to new_sheetdict_unsafe_total")
+            #print(sheet_dictionary[key]["url"])
+            new_safe_total +=1
+        elif sheet_dictionary[key]["safety_boolean"] is None:
+            new_null_total+=1
+
+    print("new unsafe total is {}".format(new_unsafe_total))
+    print("new safe total is {}".format(new_safe_total))
+    print("new null total is {}".format(new_null_total))
+
 
     #Starting loop to find uniquely null URL rows.
     for row in cat_sheet.iter_rows(min_col=2, min_row=2, max_col=cat_sheet.max_column, max_row=cat_sheet.max_row): 
@@ -98,10 +240,15 @@ def url_totals():
                 check_safety = unsafe_segment.search(cell.value)
                 if check_fake is not None:
                     #print(cell.value)
+                    #print(row) #to check if safety is accurate
                     fake_total += 1
                     break
                 elif check_safety is not None: 
+                    #print(cell)
+                    #keyword_of_segment = (cell + 1).value #if this could work somehow...
+                    #print(cell + 1) # or <Cell 'Sheet1'.H3984> edit the string so it's <Cell 'Sheet1'.H3985>
                     #print(cell.value)
+                    #print(row[0]) #to check if safety is accurate
                     unsafe_total +=1 
                     #We put a break here so that we don't over count URLs that were categorized multiple times as unsafe.
                     break 
@@ -109,6 +256,7 @@ def url_totals():
             except TypeError:
                 #This should pass from the blank cell to the next in the row, then finally to next URL row.
                 pass 
+
 
     #Starting loop to create a dict of absolute count of segment appearances regardless of unique URL row. 
     for row in cat_sheet.iter_rows(min_col=2, min_row=2, max_col=cat_sheet.max_column, max_row=cat_sheet.max_row):
@@ -119,6 +267,7 @@ def url_totals():
                 if check_safety is not None: 
                     new_segment = cell.value
                     actual_safe_total += 1
+                    #print(row) #to check if safety is accurate
                     if new_segment in safe_segment_dict: 
                         #If the segment is in the dict already add one to the current value.
                         safe_segment_dict[new_segment] = safe_segment_dict[new_segment] + 1
@@ -327,8 +476,6 @@ def segment_many_sections(safe_segment_list, http_true):
     bar.title = 'sections where the "{}" segment is'.format(most_popular_segment) 
     hardchart2_sheet.add_chart(bar, "E3")
 
-
-
 def safe_pie_chart(null_total, unsafe_total, safe_total):
     """Create Safe Unsafe Pie Chart"""
 
@@ -371,9 +518,9 @@ if __name__ == '__main__':
 
     print('Hello! The context script is working, one moment please...')
     #Open csv file from Datashot using the command line argument.
-    name = sys.argv[1] #meredith_cat_500.txt.cat.csv
+    name = sys.argv[1] #meredith.csv.cat.csv
     cleaned_name = name.split(".")
-    shorter_name = cleaned_name[0] #TEST THIS
+    shorter_name = cleaned_name[0] 
     #Transform the csv from datashot to xlsx
     #issue with unshortened so added sep and header, could maybe add: error_bad_lines=False
     #added engine='python' from error suggestion:  ParserWarning: Falling back to the 'python' engine because the 'c' engine does not support regex separator
@@ -382,23 +529,25 @@ if __name__ == '__main__':
     filename = "{}{}{}".format("charts_",shorter_name,".xlsx")
     workbook = load_workbook(filename) 
 
-    #Add sheets for data, URL sections and charts.
-    #we might make more tabs for certain data 
-    #workbook.create_sheet('Chart Data')
     workbook.create_sheet('URL Sections')
     workbook.create_sheet('Chart 1')
     workbook.create_sheet('Chart 2')
     workbook.create_sheet('Chart 3 and 4')
-    #workbook.create_sheet('ALL Charts')
+    workbook.create_sheet('Unsafe Segment Count')
+    workbook.create_sheet('Unsafe Keywords Count')
+    workbook.create_sheet('Safe Segment Count')
+    workbook.create_sheet('Safe Keywords Count')
 
     #Create new sheets for sections and charts and make variables of each sheet we'll need. 
     cat_sheet = workbook['Sheet1']
-    #data_sheet = workbook['Chart Data']
     sections_sheet = workbook['URL Sections']
     hardchart1_sheet = workbook['Chart 1']
     hardchart2_sheet = workbook['Chart 2']
     charts_sheet = workbook['Chart 3 and 4']
-    #all_charts_sheet = workbook['ALL Charts']
+    unsafe_segment_count_sheet = workbook['Unsafe Segment Count']
+    unsafe_keywords_count_sheet = workbook['Unsafe Keywords Count']
+    safe_segment_count_sheet = workbook['Safe Segment Count']
+    safe_keywords_count_sheet = workbook['Safe Keywords Count']
 
     #Add in headers and clean up the categorized sheet.
     cat_sheet.delete_cols(2)
@@ -423,9 +572,19 @@ if __name__ == '__main__':
     hardchart2_sheet['A1'] = "Most Common Segment Out of All URLs"
     hardchart2_sheet['A3'] = "Sections"
     hardchart2_sheet['B3'] = "Count"
+    unsafe_segment_count_sheet['A1'] = "Segment"
+    unsafe_segment_count_sheet['A2'] = "Count"
+    unsafe_keywords_count_sheet['A1'] = "Keywords"
+    unsafe_keywords_count_sheet['A2'] = "Count"
+    safe_segment_count_sheet['A1'] = "Segment"
+    safe_segment_count_sheet['A2'] = "Count"
+    safe_keywords_count_sheet['A1'] = "Keywords"
+    safe_keywords_count_sheet['A2'] = "Count"
 
     (http_true) = url_path_parser()
-    (null_total,unsafe_total, safe_total, safe_segment_list, section_list) = url_totals()
+    (sheet_dictionary) = standard_safety()
+    (null_total,unsafe_total, safe_total, safe_segment_list, section_list) = url_totals(sheet_dictionary)
+    count_keywords_segments(sheet_dictionary)
     segment_many_sections(safe_segment_list, http_true)
     section_many_segments(section_list)
     safe_pie_chart(null_total,unsafe_total, safe_total)
