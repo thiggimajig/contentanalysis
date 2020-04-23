@@ -64,87 +64,132 @@ def standard_safety():
     """Function to show keywords and score for unsafe (if any row has a gv segment with score 15+) (and safe down the line) urls
     segments have their own nested dctionary under each url."""
     
-    #convert tuple rows into list
+    #convert tuple rows into list --> then you could index... gar this would've been easier
     #list(rows)
     gv_unsafe_threshold = 15.00
     sheet_dictionary = {}
     total_row_count = cat_sheet.max_row
     i=0    
-    for row in cat_sheet.iter_rows(min_col=1, min_row=2, max_col=40, max_row=cat_sheet.max_row): #40
+    #see if the list row thing can make it easier to do priority 3 and 1...
+    #try it on all rows
+    for row in cat_sheet.iter_rows(min_col=1, min_row=2, max_col=40, max_row=40): #cat_sheet.max_row
         sheet_dictionary[i] = {}
-        for cell in row:
+        list_row = list(row)
+        #print(list_row) #cell value 
+        #print(type(list_row)) #list 
+        #print(type(list_row[5].value)) string
+        #print(list_row[5].value) keywords
+        for i in list_row:
+            #print(i) #prints all cells in the row 
+            #print(i.value) #prints cell values of row
             try:
-                sheet_dictionary[i]["url"] = row[0].value
-                sheet_dictionary[i]["segments"] = [row[1].value,row[4].value,row[7].value,row[10].value,row[13].value,row[16].value,row[19].value,row[22].value,row[25].value,row[28].value,row[31].value,row[34].value]
-                sheet_dictionary[i]["keywords"] = [row[2].value, row[5].value, row[8].value,row[11].value, row[14].value, row[17].value,row[20].value, row[23].value, row[26].value,row[29].value, row[32].value, row[35].value]
-                sheet_dictionary[i]["score"] = [row[3].value, row[6].value, row[9].value,row[12].value, row[15].value, row[18].value,row[21].value, row[24].value, row[27].value,row[30].value, row[33].value, row[36].value]
-                sheet_dictionary[i]["safety_verdict"] = "unknown"
-                sheet_dictionary[i]["safety_boolean"] = None
-            except AttributeError:
+                if "gv_" in i.value:
+                    #check_score = i + 2
+                    #print(check_score.value)
+                    print("unsafe")
+                    print(i)
+                    print(i.value.index)
+                    print(i.value)
+            except TypeError:
                 continue
-        i+=1
+        # for cell in row:
+        #     try:
+        #         sheet_dictionary[i]["url"] = row[0].value
+        #         sheet_dictionary[i]["segments"] = [row[1].value,row[4].value,row[7].value,row[10].value,row[13].value,row[16].value,row[19].value,row[22].value,row[25].value,row[28].value,row[31].value,row[34].value]
+        #         sheet_dictionary[i]["keywords"] = [row[2].value, row[5].value, row[8].value,row[11].value, row[14].value, row[17].value,row[20].value, row[23].value, row[26].value,row[29].value, row[32].value, row[35].value]
+        #         sheet_dictionary[i]["score"] = [row[3].value, row[6].value, row[9].value,row[12].value, row[15].value, row[18].value,row[21].value, row[24].value, row[27].value,row[30].value, row[33].value, row[36].value]
+        #         #sheet_dictionary[i]["safety_verdict"] = "unknown"
+        #         sheet_dictionary[i]["safety_boolean"] = None
+        #     except AttributeError:
+        #         continue
+        #i+=1
 
+    gs_list = ['gs_entertain_movies', 'gs_entertain_vidgames', 'gs_entertain_tv', 'gs_society', 'gs_tech', 'gs_tech_phones', 'gs_home', 'gs_tech_computing']
+    gv_list = ['gv_crime']
 
     #TODO work on figuring out urls/rows that aren't safe, but don't have gv, null
     #go to file and see how many scores are more than 15.00
-    #it's because they are duplicating, multipel gs is getting added twice.
-    for key in sheet_dictionary.keys():
-        #print(key)
-        #print(sheet_dictionary[key]["url"])
-        for segment in sheet_dictionary[key]["segments"]:
-        #if gv is above threshhold entire row unsafe, break
-        #if gv is below threshold, safe or undetermined, continue
-        #if gs is present and gv isn't above threshold safe
-        #if it's other than disregard that segment
-        #we could disregard all rows with only garbage segments
-        #then do the gv threshold test, and minus that total from url total to find safe
-            try:
-                if 'gv_' in segment:
-                    #print(segment)
-                    the_gv_index = sheet_dictionary[key]["segments"].index(segment)
-                    #print(the_gv_index)
-                    gv_score = float(sheet_dictionary[key]["score"][the_gv_index])
-                    if gv_score >= gv_unsafe_threshold:
-                        # print(type(gv_score))
-                        # print(gv_score)
-                        # print("unsafe")
-                        sheet_dictionary[key]["safety_verdict"] = "unsafe gv score is {}".format(gv_score)
-                        #HOORAY we just need get to adjust the total safe unsafe URL count using this logic, 
-                        #mark this entire row as unsafe if there's gv > 15.00
-                        sheet_dictionary[key]["safety_boolean"] = False
-                        print(sheet_dictionary[key]["url"])
-                        print(sheet_dictionary[key])
-                        print(sheet_dictionary[key]["safety_verdict"])
-                        print(sheet_dictionary[key]["safety_boolean"])
-                        #TODO to get it to leave this row/this dict USE BREAK??
-                        break
-                    else:
-                        # print(gv_score)
-                        sheet_dictionary[key]["safety_verdict"] = "safe gv score is {}".format(gv_score)
-                        sheet_dictionary[key]["safety_boolean"] = True
-                        print(sheet_dictionary[key]["url"])
-                        print(sheet_dictionary[key])
-                        print(sheet_dictionary[key]["safety_verdict"])
-                        print(sheet_dictionary[key]["safety_boolean"])
-                        # print(gv_score)
-                        # print("safe")
-                elif 'gs_' in segment:
-                    sheet_dictionary[key]["safety_verdict"] = "safe no gv segments in the url"
-                    sheet_dictionary[key]["safety_boolean"] = True
-                    print(sheet_dictionary[key]["url"])
-                    print(sheet_dictionary[key])
-                    print(sheet_dictionary[key]["safety_verdict"])
-                    print(sheet_dictionary[key]["safety_boolean"])
-                else:
-                    sheet_dictionary[key]["safety_verdict"] = "null"
-                    print(sheet_dictionary[key]["url"])
-                    print(sheet_dictionary[key])
-                    print(sheet_dictionary[key]["safety_verdict"])
-                    print(sheet_dictionary[key]["safety_boolean"])
-                    #print("Null")
-            #TODO investigate this try except with skewing safe unsafe numbers
-            except TypeError:
-                continue
+    #it's because they are duplicating, multiple gs segments is getting counted for each segment
+    #AND the true part is getting added for every gs segment before the gv false one.
+    #go through each row/url dictionary
+    # for key in sheet_dictionary.keys():
+    #     #print(key) counts up
+    #     #print(sheet_dictionary[key]["segments"])
+    #     #then going through each item in the segments list of that url/row
+    #     #do I want a set?
+    #     #I could do a full list of the gs ones to look for and have it be "in" like gs_business
+    #     try:
+    #         for segment in sheet_dictionary[key]["segments"]:
+    #             if segment.startswith("gs_"):
+    #                 print("gs_")
+    #             elif segment.startswith("gx_"):
+    #                 print("gx")
+    #             elif segment.startswith("gv_"):
+    #                 print("gv_")
+    #             else:
+    #                 print("else")
+        #TODO finish thinking this through 
+        #maybe go through and for all segments in a row, tally up, put into parent child, gv, gs etc
+        #then for each row if have any in the gv list then research if not move on
+        #while we're at it we'll pull out keywords when we pullout score for intg stuff
+
+            # if "gs_business" in sheet_dictionary[key]["segments"]:
+            #     print(sheet_dictionary[key]["url"])
+            #     #has to be an exact match
+            #     #and gv not in it
+            #     #or gv of threshold not in it
+            #     #safe
+            #     if 'gv_' in sheet_dictionary[key]["segments"]:
+            #         for segment in sheet_dictionary[key]["segments"]:
+            #             print(type(segment))
+            #             gv_score = float(sheet_dictionary[key]["score"][the_gv_index])
+            #             if gv_score < gv_unsafe_threshold:
+            #                 sheet_dictionary[key]["safety_boolean"] = True
+            #             elif gv_score >= gv_unsafe_threshold:
+            #                 sheet_dictionary[key]["safety_boolean"] = False
+            #     else:
+            #         sheet_dictionary[key]["safety_boolean"] = True
+            # else:
+        #     #     sheet_dictionary[key]["safety_boolean"] = None
+        # except TypeError:
+        #     continue
+    #print(sheet_dictionary)
+
+
+
+        # for segment in sheet_dictionary[key]["segments"]:
+        # #we could disregard all rows with only garbage segments
+        # #then do the gv threshold test, and minus that total from url total to find safe
+        # #you could do if segments don't contain any gs or gv then it's null (delete out)
+        # #if gv_ over threshold then mark as unsafe
+        # #then just from total minus null then unsafe to get safe
+        # #we want to get a total unsafe and null count here... 
+        #     try:
+        #         if 'gv_' in segment:
+        #             #print(segment)
+        #             the_gv_index = sheet_dictionary[key]["segments"].index(segment)
+        #             #print(the_gv_index)
+        #             gv_score = float(sheet_dictionary[key]["score"][the_gv_index])
+        #             if gv_score >= gv_unsafe_threshold:
+        #                 # print(type(gv_score))
+        #                 # print(gv_score)
+        #                 # print("unsafe")
+        #                 sheet_dictionary[key]["safety_verdict"] = "unsafe gv score is {}".format(gv_score)
+        #                 #HOORAY we just need get to adjust the total safe unsafe URL count using this logic, 
+        #                 #mark this entire row as unsafe if there's gv > 15.00
+        #                 sheet_dictionary[key]["safety_boolean"] = False
+        #                 #print(sheet_dictionary[key]["url"])
+        #                 #TODO to get it to leave this row/this dict USE BREAK?? I think I'd need to break out at key. A couple indents out.
+        #     #if gx, or gl in segments we know it's null
+        #     except TypeError:
+        #         continue
+
+    #Making things simpler, use old logic with new caveat of threshold
+    row_count = cat_sheet.max_row 
+    #total_cat_urls = row_count - 1 - null_total
+    #safe_total = total_cat_urls - unsafe_total
+
+
     #here or elsewhere perhaps up in safe null etc, we want to 
     #loop through all verdicts for all url dicts or rows
     #if it starts with safe count as safe, if it starts as unsafe count as unsafe
@@ -153,6 +198,8 @@ def standard_safety():
     #print(sheet_dictionary[26]) #should be safe but has a gv seg good
     #print(sheet_dictionary[9]) #should be unsafe good 
     #print(sheet_dictionary[21]) #will be safe
+
+
     return(sheet_dictionary)
 
 def count_keywords_segments(sheet_dictionary):
@@ -186,6 +233,7 @@ def url_totals(sheet_dictionary):
     fake_total = 0
     safe_segment_dict = {}
     section_dict = {}
+###NEW STUFF###
     new_unsafe_total = 0
     new_safe_total = 0
     new_null_total = 0
@@ -194,25 +242,29 @@ def url_totals(sheet_dictionary):
     #Work on new unsafe total and safe total here
     #loop through sheet dictionary, if url dict contains safety_verdict
     #starting with unsafe or safe add a point to the total
-    for key in sheet_dictionary.keys():
-        if sheet_dictionary[key]["safety_boolean"] is False:
-            #print(sheet_dictionary[key]["safety_boolean"])
-            #print("add to new_sheetdict_safe_total")
-            #print(sheet_dictionary[key]["url"])
-            new_unsafe_total +=1
-        elif sheet_dictionary[key]["safety_boolean"] is True:
-            #print(sheet_dictionary[key]["safety_boolean"])
-            #print("add to new_sheetdict_unsafe_total")
-            #print(sheet_dictionary[key]["url"])
-            new_safe_total +=1
-        elif sheet_dictionary[key]["safety_boolean"] is None:
-            new_null_total+=1
+    # for key in sheet_dictionary.keys():
+    #     if sheet_dictionary[key]["safety_boolean"] is False:
+    #         #print(sheet_dictionary[key]["safety_boolean"])
+    #         #print("add to new_sheetdict_safe_total")
+    #         #print(sheet_dictionary[key]["url"])
+    #         new_unsafe_total +=1
+    #     elif sheet_dictionary[key]["safety_boolean"] is True:
+    #         #print(sheet_dictionary[key]["safety_boolean"])
+    #         #print("add to new_sheetdict_unsafe_total")
+    #         #print(sheet_dictionary[key]["url"])
+    #         new_safe_total +=1
+    #     elif sheet_dictionary[key]["safety_boolean"] is None:
+    #         new_null_total+=1
 
-    print("new unsafe total is {}".format(new_unsafe_total))
-    print("new safe total is {}".format(new_safe_total))
-    print("new null total is {}".format(new_null_total))
+    # print("new unsafe total is {}".format(new_unsafe_total))
+    # print("new safe total is {}".format(new_safe_total))
+    # print("new null total is {}".format(new_null_total))
 
+    row_count = cat_sheet.max_row 
+    total_cat_urls = row_count - 1 - null_total
+    safe_total = total_cat_urls - unsafe_total
 
+#####OLD STUFF####
     #Starting loop to find uniquely null URL rows.
     for row in cat_sheet.iter_rows(min_col=2, min_row=2, max_col=cat_sheet.max_column, max_row=cat_sheet.max_row): 
         for cell in row:
@@ -257,8 +309,9 @@ def url_totals(sheet_dictionary):
                 #This should pass from the blank cell to the next in the row, then finally to next URL row.
                 pass 
 
-
+#TODO look into this and see if it's counting unique urls or not, and if the chart 4 is accurate
     #Starting loop to create a dict of absolute count of segment appearances regardless of unique URL row. 
+#UPDATE I think by removing the break after else FIXED IT
     for row in cat_sheet.iter_rows(min_col=2, min_row=2, max_col=cat_sheet.max_column, max_row=cat_sheet.max_row):
         for cell in row:
             safe_segment = re.compile(r'^gs_')
@@ -274,15 +327,17 @@ def url_totals(sheet_dictionary):
                     else:
                         #If the segment is not in the dict already then add it and make the value 1.
                         safe_segment_dict[new_segment] = 1
-                    break #adding this break to see if we can get an accurate gs_ count
+                    #break #adding this break to see if we can get an accurate gs_ count
             except TypeError:
                 pass
 
     #Here we are sorting the dict of safe segments in descending order by the value of the dict.   
     sorted_safe_seg_dict = dict(sorted(safe_segment_dict.items(), key=operator.itemgetter(1), reverse=True))
+    #print(safe_segment_dict)
     #print(sorted_safe_seg_dict)
     #Here we are turning the sorted dict into a list so we can later append it by row and create the segment bar chart.
     safe_segment_list = list(sorted_safe_seg_dict.items())
+    #print(sorted_safe_seg_dict)
     #print(safe_segment_list[0][0])
 
     #Starting loop to create a dict of absolute count of section appearances regardless of unique URL row or safety.
@@ -503,6 +558,8 @@ def popular_bar_chart(safe_segment_list):
     #Here we append the total segment data to the Charts Sheet.
     for row in safe_segment_list:
         charts_sheet.append(row)
+    # print(len(safe_segment_list))
+    # print(safe_segment_list)
 
     #Here we set up a bar chart using openpyxl.
     bar = BarChart()
