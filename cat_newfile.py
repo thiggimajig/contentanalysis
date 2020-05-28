@@ -59,6 +59,109 @@ def url_path_parser():
                 sections_sheet.append(row)
                 #data_sheet.append(row)
     return(http_true)
+def covid19_dict():
+    """Creating a nested dict for each url that has the gs_covid19 segement in it. 
+    example: {1:{'url':string, 'segments':list}, 2:{'url':string, 'segments':list}...}
+    for cell in row:
+            null_segment = re.compile(r'^gx_')
+            try:
+                check_null = null_segment.search(cell.value)
+                if check_null is not None: 
+                    null_total +=1 
+                        else:
+                    continue
+
+            except TypeError:
+                #This should pass from the blank cell to the next in the row, then finally to next URL row.
+                pass 
+    """
+    covid_segment_total = 0
+    segment_list_in_covid_row = []
+    covid_segment_count_dictionary = {} #{non_covid_segment:count} like we've done before
+    master_covid_segment_dictionary = {} #{url:[segment_list]} DONE
+
+    for row in cat_sheet.iter_rows(min_col=1, min_row=2, max_col=50, max_row=cat_sheet.max_row):
+        list_row = list(row)
+        for col in cat_sheet.iter_cols(min_col=1, min_row=2, max_col=50, max_row=cat_sheet.max_row): #cat_sheet.max_colum
+            for cell in col:
+                #print(cell.value)
+                covid_segment = re.compile(r'^gs_covid19')
+                try:
+                    check_covid = covid_segment.search(cell.value)
+                    if check_covid is not None:
+                        #then you care about the row and url
+                        ##print("this is the cell value {}".format(cell.value))
+                        #print(col) #this gets us the whole column in the annoying format... 
+                        #print(col.index) #will this work? nope... 
+                        #print("this is the cell {}".format(cell)) #this is the cell <Cell 'Sheet1'.K20>
+                        #print(type(cell)) #class 'openpyxl.cell.cell.Cell'
+                        #could split the cell after . and pull out column K and row 20. get url index of row 20 for url
+                        ##print("this is the cell row {}".format(cell.row)) #FUCK YEAH THAT WORKED!!! 
+                        #print("this is the cell column {}".format(cell.column))
+                        #print("this is the cell column letter {}".format(cell.column_letter))
+                        #print("this is the cell coordinate {}".format(cell.coordinate))
+                        #print("this is the cell column index {}".format(cell.col_idx))
+                        ##print("this is the url {}".format(list_row[0].value))
+                        #print("this is the row {}".format(row)) row is not defined... 
+                        
+                        #you want to be able to access only the segments in the row 
+                        #print(list_row[1].value)
+                        #while i < 50: i+3 #TODO finish this later so smart dynamic
+                        segment_list_in_covid_row = [list_row[1].value, list_row[4].value, list_row[7].value, list_row[10].value, list_row[13].value, list_row[16].value, list_row[19].value, list_row[22].value, list_row[25].value]
+                        #print(segment_list_in_covid_row) #TODO issue is they are only printing or saving last one row 20 
+
+                        #master_covid_segment_dictionary = {list_row[0].value:segment_list_in_covid_row}
+                        # it's not iterating... should be straightforward how to fix
+
+                        #let's try this: #YAY that worked I think so sleepy
+                        master_covid_segment_dictionary[list_row[0].value] = segment_list_in_covid_row
+
+                        covid_segment_total +=1
+
+                        for new_segment in segment_list_in_covid_row:
+                            #trying to get none and gscovid out of it
+                            if new_segment == None:
+                                break
+                            elif new_segment == "gs_covid19":
+                                break
+                            elif new_segment in covid_segment_count_dictionary:
+                                covid_segment_count_dictionary[new_segment] += 1
+                            else:
+                                covid_segment_count_dictionary[new_segment] = 1
+
+                        """if new_segment in unsafe_segment_dict:
+                        unsafe_segment_dict[new_segment] +=1 #= unsafe_segment_dict[new_segment] + 1
+                    else:
+                        unsafe_segment_dict[new_segment] = 1
+                    #We put a break here so that we don't over count URLs that were categorized multiple times as unsafe.
+                    break """
+
+                        #TODO if that noncovid segment is in covid_segment_count_dictionary, if not etc. 
+                        #then sort and convert to a list like all the others
+                        #...should make this a method or function in itself
+                        #then export from this and import through the actual page to write
+                        #then explore this way for the final tab.
+
+                    else:
+                        continue
+
+                except TypeError:
+                    pass
+
+        
+        #print(sorted_covid_segment_count_dictionary)
+        #print(covid_segment_total) #this is the correct count 20 for justjared
+        #print(segment_list_in_covid_row)
+        #print(master_covid_segment_dictionary) #IT WORKED yay
+    #print(covid_segment_count_dictionary)
+    #covid_segment_count_dictionary.pop("None", None) didn't work to delete none key.. 
+    sorted_covid_segment_count_dictionary = dict(sorted(covid_segment_count_dictionary.items(), key=operator.itemgetter(1), reverse=True))
+    #print(sorted_covid_segment_count_dictionary)
+    sorted_covid_segment_count_list = list(sorted_covid_segment_count_dictionary.items())
+    """sorted_safe_keyword_dict = dict(sorted(safe_keyword_dict.items(), key=operator.itemgetter(1), reverse=True))
+    safe_keyword_list = list(sorted_safe_keyword_dict.items())
+    """
+    return(sorted_covid_segment_count_list)
 
 def standard_safety():
     """Function to show keywords and score for unsafe (if any row has a gv segment with score 15+) (and safe down the line) urls
@@ -70,16 +173,57 @@ def standard_safety():
     sheet_dictionary = {}
     total_row_count = cat_sheet.max_row
     
+    #creating a usable dictionary for each url row, helpful for final tab and other things
     # for row in cat_sheet.iter_rows(min_col=1, min_row=2, max_col=40, max_row=40): #cat_sheet.max_row
     #     #sheet_dictionary[i] = {}
     #     #this list thing works!!! TODO use this for smart gv stuff 
-    #     list_row = list(row)
+    #     list_row = list(row) 
+    #     #print(list_row.row) #this doesn't matter too much but curious... NO attribute
     #     #print(list_row) #cell value 
     #     # print(type(list_row)) #list 
     #     # print(type(list_row[5].value)) string
     #     # print(list_row[5].value) keywords
     #     for item in list_row:
-    #         sheet_dictionary[item.row] = 
+    #         #the below without the url piece made an empty nested dict based off of row number
+    #         #sheet_dictionary[item.row] = {'url':list_row[0].value, 'segment':list_row[1].value, 'keyword':list_row[2].value, 'score':list_row[3].value} 
+    #         #{'url': 'http://people.com/royals/meghan-markles-favorite-ring-before-she-got-that-ring-is-back-on-the-market-and-its-only-42/', 'segment': 'gs_entertain_celeb', 'keyword': '|Duchess of Sussex|Duchess|Celeb|meghan markle|', 'score': '23.479'}
+    #         #try: except TypeError: continue
+    #         #print(item) #this prints each cell in each row from 2 to 40
+    #         #print(row) #this prints all cells in a row in a list
+    #         if 'gs_covid19' in item.value:
+    #             #print(item.value) #do regex here, TODO, ERROR
+
+    #         #print(item.value) #this prints all the values of each cell
+    #         #print(row[1]) #this works prints each cell in the second column
+
+    #         #WIP HELP I know there's a better way to do this than to hardcode in... loop every third is segment, score, keyword etc? have two different types of dictionaries one for group and one by type
+    #         sheet_dictionary[item.row] = {'url':list_row[0].value, 'first':[list_row[1].value, list_row[2].value, list_row[3].value],  'second':[list_row[4].value, list_row[5].value, list_row[6].value], 'third':[list_row[7].value, list_row[8].value, list_row[9].value]}
+
+    #         #{'url': 'http://people.com/royals/meghan-markles-favorite-ring-before-she-got-that-ring-is-back-on-the-market-and-its-only-42/', 'first': ['gs_entertain_celeb', '|Duchess of Sussex|Duchess|Celeb|meghan markle|', '23.479'], 'second': ['gs_entertain', '|meghan markle|Celeb|Duchess|Duchess of Sussex|', 20.897], 'third': ['gs_tech_computing', "|Firefox|Google|Microsoft's|", 8.789]}
+    #         # for segments in sheet_dictionary[item][] #WIP not working 
+    #         # if 'gs_covid19' sheet_dictionary[item] #WIP not working 
+
+    #         #all we want from this is to find the indexing piece... knowing which row you're in in a loop
+            #what that is is the fact we can use item to know what row we're in so then we could find the url
+
+    #print(sheet_dictionary[item.row]) #gives us the full dictionary line for the last entry 40 in the nested dictionary    
+    #print(sheet_dictionary[5]['first'])
+    # for item in sheet_dictionary[item.row]:
+    #         #print(item.value) #error
+    #         #print(item) #gets me url, first, second, third
+    #         if 'gs_covid19' in item:
+    #             #print(item.row) 
+    #             #print('got one!') 
+    #     #WIP for covid 19 thing!! 
+
+        #TODO get this to work tomorrow or whenever
+        # if 'gs_' in sheet_dictionary[item.row]['first']:
+        #     print(sheet_dictionary[item.row]['first'])
+        #if the above worked we could use it for gv and then add a key for safe unsafe
+        #then when write to final tab I'd have that
+        #and when writing to final tab, we don't need to worry about string url, can just hardcode instead of append
+        #how would we deal with boolean not being in a list or whatever?
+
 
 
         # for cell in row:
@@ -221,7 +365,7 @@ def count_keywords_segments():
         # print(type(list_row)) #list 
         # print(type(list_row[5].value)) string
         # print(list_row[5].value) keywords
-        for item in list_row: #change i to item or cell
+        for item in list_row: 
             #print(item)
             #print(item.value) #prints all cells in the row 
             #print(i.value) #prints cell values of row
@@ -376,7 +520,7 @@ def url_totals(sheet_dictionary):
                     #print(row[0]) #to check if safety is accurate
                     unsafe_total +=1 
                     if new_segment in unsafe_segment_dict:
-                        unsafe_segment_dict[new_segment] = unsafe_segment_dict[new_segment] + 1
+                        unsafe_segment_dict[new_segment] +=1 #= unsafe_segment_dict[new_segment] + 1
                     else:
                         unsafe_segment_dict[new_segment] = 1
                     #We put a break here so that we don't over count URLs that were categorized multiple times as unsafe.
@@ -410,14 +554,14 @@ def url_totals(sheet_dictionary):
     sorted_unsafe_seg_dict = dict(sorted(unsafe_segment_dict.items(), key=operator.itemgetter(1), reverse=True))
     #Here we are sorting the dict of safe segments in descending order by the value of the dict.   
     sorted_safe_seg_dict = dict(sorted(safe_segment_dict.items(), key=operator.itemgetter(1), reverse=True))
-    #print(safe_segment_dict)
     #print(sorted_safe_seg_dict)
     unsafe_segment_list = list(sorted_unsafe_seg_dict.items())
     #print(unsafe_segment_list)
     #Here we are turning the sorted dict into a list so we can later append it by row and create the segment bar chart.
     safe_segment_list = list(sorted_safe_seg_dict.items())
     #print(sorted_safe_seg_dict)
-    #print(safe_segment_list[0][0])
+    #print(safe_segment_dict)
+    #print(safe_segment_list)
 
     #Starting loop to create a dict of absolute count of section appearances regardless of unique URL row or safety.
     for row in sections_sheet.iter_rows(min_col=1, min_row=2, max_col=sections_sheet.max_column, max_row=sections_sheet.max_row):
@@ -464,7 +608,7 @@ def section_many_segments(section_list):
     #Note that we might end up picking the top 3 to give more options.
     #print(section_list) #this is fine
     most_popular_section = section_list[2][0] #do the top 3
-    #print(section_list[2][0]) #this gives me gv_adult FIXED YAY
+    #print(section_list[1][0]) #this gives me gv_adult FIXED YAY
     #print(most_popular_section) #this is fine
     hardchart1_sheet['B1'] = most_popular_section
     popular_segment_count = {}
@@ -667,10 +811,17 @@ def safe_keyword_count(safe_keyword_list):
     for row in safe_keyword_list:
         safe_keywords_count_sheet.append(row)
 
+def gs_covid19_count(sorted_covid_segment_count_list):
+    '''Show the count for the other segments for a url that has gs_covid19 segment. maybe pull out those urls too that have the gs_covid19 segment
+    This all could be worked out with the url_safe_unsafe dictionary below'''
+    for row in sorted_covid_segment_count_list:
+        gs_covid19_count_sheet.append(row)
+    
+
 def url_safe_unsafe(sheet_dictionary):
     """write the dictionary to each row of this tab,
     want to loop through each row dict and print it to
-    the row hwere"""
+    the row here"""
     url_safe_unsafe_sheet['A2'] = "Placeholder tab, not finished yet! "
 
 
@@ -738,6 +889,7 @@ if __name__ == '__main__':
     workbook.create_sheet('Safe Segment Count')
     workbook.create_sheet('Unsafe Keywords Count')
     workbook.create_sheet('Safe Keywords Count')
+    workbook.create_sheet('gs_covid19')
     workbook.create_sheet('URL Safe Unsafe')
 
     #Create new sheets for sections and charts and make variables of each sheet we'll need. 
@@ -752,6 +904,9 @@ if __name__ == '__main__':
     #odd these are being switched somehow... TODO
     unsafe_keywords_count_sheet = workbook['Unsafe Keywords Count']
     safe_keywords_count_sheet = workbook['Safe Keywords Count']
+
+    #WIP create a sheet that shows total count of other segments in a url that has gs_covid19
+    gs_covid19_count_sheet = workbook['gs_covid19']
 
     url_safe_unsafe_sheet = workbook['URL Safe Unsafe']
 
@@ -789,11 +944,16 @@ if __name__ == '__main__':
     safe_keywords_count_sheet['A1'] = "Keywords"
     safe_keywords_count_sheet['B1'] = "Count"
 
+    gs_covid19_count_sheet['A1'] = "Non gs_covid19 Segments"
+    gs_covid19_count_sheet['B1'] = "Count"
+
     url_safe_unsafe_sheet['A1'] = "URL"
-    url_safe_unsafe_sheet['B1'] =  "URL Safety"
-    url_safe_unsafe_sheet['C1'] = "Segments"
-    url_safe_unsafe_sheet['D1'] = "Keywords"
-    url_safe_unsafe_sheet['E1'] = "Scores"
+    url_safe_unsafe_sheet['B1'] = "Deemed Safe?"
+    url_safe_unsafe_sheet['C1'] = "Segment List"
+    url_safe_unsafe_sheet['D1'] = "Keyword List"
+    url_safe_unsafe_sheet['E1'] = "Score List"
+    url_safe_unsafe_sheet['F1'] = "Has gs_covid19 Segment?"
+
     (http_true) = url_path_parser()
     (sheet_dictionary) = standard_safety()
     (null_total,unsafe_total, safe_total, safe_segment_list, section_list, unsafe_segment_list) = url_totals(sheet_dictionary)
@@ -807,5 +967,9 @@ if __name__ == '__main__':
     unsafe_keyword_count(unsafe_keyword_list)
     safe_keyword_count(safe_keyword_list)
     url_safe_unsafe(sheet_dictionary)
+
+    (sorted_covid_segment_count_list) = covid19_dict()
+    gs_covid19_count(sorted_covid_segment_count_list)
+
     workbook.save(filename="{}{}{}".format("charts_",shorter_name,".xlsx"))
     print("Using input file named {} the context script has finished!".format(name))
